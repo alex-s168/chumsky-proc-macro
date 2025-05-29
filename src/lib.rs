@@ -11,12 +11,19 @@ impl LikeTokenTree for TokenTree {
     }
 }
 
+#[derive(Debug)]
 #[non_exhaustive]
 pub enum Expected
 {
     StandAlonePunct(char),
     PunctSeq(String),
     Ident,
+}
+
+impl<T> From<Expected> for chumsky::error::RichReason<'_, T> {
+    fn from(value: Expected) -> Self {
+        chumsky::error::RichReason::Custom(format!("{:?}", value))
+    }
 }
 
 /// A single punctuation character like `+`, `-` or `#`.
