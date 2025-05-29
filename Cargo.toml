@@ -1,16 +1,14 @@
 [package]
 name = "chumsky-proc-macro"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
+description = "utils for parsing proc macros using chumsky"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/alex-s168/chumsky-proc-macro.git"
 
 [dependencies]
 chumsky = "1.0.0-alpha.8"
 proc-macro2 = "1.0.95"
-syn = { version = "2.0.101", optional = true }
-
-[features]
-syn = ["dep:syn"]
-
 
 [dev-dependencies]
 quote = "1.0.40"
