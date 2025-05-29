@@ -20,9 +20,15 @@ pub enum Expected
     Ident,
 }
 
-impl<T> From<Expected> for chumsky::error::RichReason<'_, T> {
+impl<'a, T> From<Expected> for chumsky::error::RichPattern<'a, T> {
     fn from(value: Expected) -> Self {
-        chumsky::error::RichReason::Custom(format!("{:?}", value))
+        use chumsky::error::RichPattern;
+
+        match value {
+            Expected::StandAlonePunct(p) => RichPattern::Label(format!("'{}'", p).into()),
+            Expected::PunctSeq(p) => RichPattern::Label(format!("'{}'", p).into()),
+            Expected::Ident => RichPattern::Label("identifier".into()),
+        }
     }
 }
 
