@@ -64,7 +64,7 @@ impl<'a, T> From<Expected> for chumsky::error::RichPattern<'a, T> {
 }
 
 /// A single punctuation character like `+`, `-` or `#`.
-pub fn punct<'src, I, E>(val: char) -> impl Parser<'src, I, (), E>
+pub fn punct<'src, I, E>(val: char) -> impl Parser<'src, I, (), E> + Clone
 where
     I: ValueInput<'src>,
     I::Token: LikeTokenTree + 'src,
@@ -74,7 +74,7 @@ where
     punct_impl(val)
 }
 
-fn punct_impl<'src, I, E>(val: char) -> impl Parser<'src, I, (), E>
+fn punct_impl<'src, I, E>(val: char) -> impl Parser<'src, I, (), E> + Clone
 where
     I: ValueInput<'src>,
     I::Token: LikeTokenTree + 'src,
@@ -102,7 +102,7 @@ where
 }
 
 /// A sequence of punctuation character like `+=`, '--', or even `#<##>`.
-pub fn punct_seq<'src, I, E, S: AsRef<str>>(seq: S) -> impl Parser<'src, I, (), E>
+pub fn punct_seq<'src, I, E, S: AsRef<str>>(seq: S) -> impl Parser<'src, I, (), E> + Clone
 where
     I: ValueInput<'src>,
     I::Token: LikeTokenTree + 'src,
@@ -124,7 +124,7 @@ where
                         span))
 }
 
-pub fn ident<'src, I, E>() -> impl Parser<'src, I, String, E>
+pub fn ident<'src, I, E>() -> impl Parser<'src, I, String, E> + Clone
 where
     I: ValueInput<'src>,
     I::Token: LikeTokenTree + 'src,
@@ -142,9 +142,9 @@ where
             span)))
 }
 
-pub fn exact_ident<'src, I, E, S>(exact: S) -> impl Parser<'src, I, (), E>
+pub fn exact_ident<'src, I, E, S>(exact: S) -> impl Parser<'src, I, (), E> + Clone
 where
-    S: AsRef<str>,
+    S: AsRef<str> + Clone,
     I: ValueInput<'src>,
     I::Token: LikeTokenTree + 'src,
     E: ParserExtra<'src, I>,
@@ -161,7 +161,7 @@ where
             span)))
 }
 
-pub fn namespace_with_ident<'src, I, E>()  -> impl IterParser<'src, I, String, E>
+pub fn namespace_with_ident<'src, I, E>() -> impl IterParser<'src, I, String, E> + Clone
 where
     I: ValueInput<'src>,
     I::Token: LikeTokenTree + 'src,
@@ -176,7 +176,7 @@ where
 }
 
 /// A literal character (`'a'`), string (`"hello"`), number (`2.3`), etc.
-pub fn literal<'src, I, E>() -> impl Parser<'src, I, String, E>
+pub fn literal<'src, I, E>() -> impl Parser<'src, I, String, E> + Clone
 where
     I: ValueInput<'src>,
     I::Token: LikeTokenTree + 'src,
@@ -217,7 +217,7 @@ pub trait GroupExtension<P, PE> {
     fn grouped(self, delim: GroupDelim) -> P;
 }
 
-impl<'wholesrc, 'partsrc, 'b, WI, V, WE, PP, PE> GroupExtension<chumsky::Boxed<'wholesrc, 'b, WI, V, WE>, PE> for PP 
+impl<'wholesrc, 'partsrc, 'b, WI, V, WE, PP, PE> GroupExtension<chumsky::Boxed<'wholesrc, 'b, WI, V, WE>, PE> for PP
 where
     WI: ValueInput<'wholesrc> + 'b,
     WI::Token: LikeTokenTree + 'wholesrc + 'b,

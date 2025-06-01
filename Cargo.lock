@@ -48,7 +48,7 @@ dependencies = [
 
 [[package]]
 name = "chumsky-proc-macro"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "chumsky",
  "proc-macro2",
