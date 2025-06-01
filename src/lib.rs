@@ -11,6 +11,12 @@ impl LikeTokenTree for TokenTree {
     }
 }
 
+impl LikeTokenTree for (TokenTree, proc_macro2::Span) {
+    fn as_tok(&self) -> &TokenTree {
+        &self.0
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct TokenTreeWrapper(pub TokenTree);
 
@@ -41,6 +47,7 @@ pub enum Expected
     StandAlonePunct(char),
     PunctSeq(String),
     Ident,
+    ExactIdent(String),
 }
 
 impl<'a, T> From<Expected> for chumsky::error::RichPattern<'a, T> {
@@ -51,6 +58,7 @@ impl<'a, T> From<Expected> for chumsky::error::RichPattern<'a, T> {
             Expected::StandAlonePunct(p) => RichPattern::Label(format!("'{}'", p).into()),
             Expected::PunctSeq(p) => RichPattern::Label(format!("'{}'", p).into()),
             Expected::Ident => RichPattern::Label("identifier".into()),
+            Expected::ExactIdent(p) => RichPattern::Identifier(p)
         }
     }
 }
@@ -130,6 +138,25 @@ where
         _ => None
     }.ok_or_else(|| LabelError::expected_found(
             [Expected::Ident],
+            Some(MaybeRef::Val(x)),
+            span)))
+}
+
+pub fn exact_ident<'src, I, E, S>(exact: S) -> impl Parser<'src, I, (), E>
+where
+    S: AsRef<str>,
+    I: ValueInput<'src>,
+    I::Token: LikeTokenTree + 'src,
+    E: ParserExtra<'src, I>,
+    E::Error: LabelError<'src, I, Expected>
+{
+    use chumsky::prelude::*;
+
+    any().try_map(move |x: I::Token, span| match &x.as_tok() {
+        TokenTree::Ident(i) if i.to_string().as_str() == exact.as_ref() => Some(()),
+        _ => None
+    }.ok_or_else(|| LabelError::expected_found(
+            [Expected::ExactIdent(exact.as_ref().to_string())],
             Some(MaybeRef::Val(x)),
             span)))
 }
@@ -346,6 +373,26 @@ mod tests {
         let toks = quote! { 1 2 3 }.into_iter();
 
         let parser = &ident::<_, Err<Simple<_>>>();
+        let _v = parser.parse(Stream::from_iter(toks))
+            .into_result()
+            .unwrap_err();
+    }
+
+    #[test]
+    fn test_exact_ident0() {
+        let toks = quote! { hey }.into_iter();
+
+        let parser = &exact_ident::<_, Err<Simple<_>>, _>("hey");
+        let _v = parser.parse(Stream::from_iter(toks))
+            .into_result()
+            .unwrap();
+    }
+
+    #[test]
+    fn test_exact_ident1() {
+        let toks = quote! { heey }.into_iter();
+
+        let parser = &exact_ident::<_, Err<Simple<_>>, _>("hey");
         let _v = parser.parse(Stream::from_iter(toks))
             .into_result()
             .unwrap_err();
