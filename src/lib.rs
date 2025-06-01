@@ -11,6 +11,29 @@ impl LikeTokenTree for TokenTree {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct TokenTreeWrapper(pub TokenTree);
+
+impl std::fmt::Display for TokenTreeWrapper {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl PartialEq for TokenTreeWrapper {
+    fn eq(&self, _other: &Self) -> bool {
+        false
+    }
+}
+
+impl Eq for TokenTreeWrapper {}
+
+impl LikeTokenTree for TokenTreeWrapper {
+    fn as_tok(&self) -> &TokenTree {
+        &self.0
+    }
+}
+
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Expected
@@ -163,42 +186,44 @@ impl GroupDelim {
     }
 }
 
-pub trait ParserGroupedExtension<'src, V, E>:
-    Parser<'src, chumsky::input::Stream<proc_macro2::token_stream::IntoIter>, V, E> + Sized
-where
-    E: ParserExtra<'src, chumsky::input::Stream<proc_macro2::token_stream::IntoIter>>,
-    E::Context: Default,
-    E::State: Default,
-    E::Error: LabelError<'src, chumsky::input::Stream<proc_macro2::token_stream::IntoIter>, Expected>
-{
-    fn grouped(self, delim: GroupDelim) -> impl Parser<'src, chumsky::input::Stream<proc_macro2::token_stream::IntoIter>, V, E> 
-    {
-        use chumsky::prelude::*;
-        use chumsky::input::Stream;
+pub trait GroupExtension<P, PE> {
+    fn grouped(self, delim: GroupDelim) -> P;
+}
 
-        any().try_map(move |x: proc_macro2::TokenTree, span| match &x.as_tok() {
+impl<'wholesrc, 'partsrc, 'b, WI, V, WE, PP, PE> GroupExtension<chumsky::Boxed<'wholesrc, 'b, WI, V, WE>, PE> for PP 
+where
+    WI: ValueInput<'wholesrc> + 'b,
+    WI::Token: LikeTokenTree + 'wholesrc + 'b,
+    WE: ParserExtra<'wholesrc, WI> + 'b,
+    WE::Error: LabelError<'wholesrc, WI, Expected>,
+    PP: Parser<'partsrc, chumsky::input::Stream<std::vec::IntoIter<TokenTreeWrapper>>, V, PE> + 'b + 'wholesrc,
+    PE: ParserExtra<'partsrc, chumsky::input::Stream<std::vec::IntoIter<TokenTreeWrapper>>>,
+    PE::Context: Default,
+    PE::State: Default,
+    PE::Error: LabelError<'partsrc, chumsky::input::Stream<std::vec::IntoIter<TokenTreeWrapper>>, Expected>,
+    WE::Error: From<PE::Error>
+{
+    fn grouped(self, delim: GroupDelim) -> chumsky::Boxed<'wholesrc, 'b, WI, V, WE> {
+        use chumsky::prelude::*;
+        any().try_map(move |x: WI::Token, span: WI::Span| match &x.as_tok() {
             TokenTree::Group(i) if i.delimiter() == delim.to_procmacro() => {
-                self.parse(Stream::from_iter(i.stream().into_iter()))
+                self.parse(chumsky::input::Stream::from_iter(i.stream()
+                        .into_iter()
+                        .map(|x| TokenTreeWrapper(x))
+                        .collect::<Vec<_>>()
+                        .into_iter()))
                     .into_result()
-                    .map_err(|x| x.into_iter().next().unwrap())
+                    .map_err(|x| {
+                        x.into_iter().reduce(|a,b| a.merge(b)).unwrap().into()
+                    })
             }
             _ => Err(LabelError::expected_found(
                 [Expected::Ident],
                 Some(MaybeRef::Val(x)),
                 span)) 
-        })
+        }).boxed()
     }
 }
-
-impl<'src, V, E, P> ParserGroupedExtension<'src, V, E> for
-    P 
-where
-    P: Parser<'src, chumsky::input::Stream<proc_macro2::token_stream::IntoIter>, V, E> + Sized,
-    E: ParserExtra<'src, chumsky::input::Stream<proc_macro2::token_stream::IntoIter>>,
-    E::Context: Default,
-    E::State: Default,
-    E::Error: LabelError<'src, chumsky::input::Stream<proc_macro2::token_stream::IntoIter>, Expected>
-{}
 
 #[cfg(test)]
 mod tests {
@@ -350,11 +375,11 @@ mod tests {
     fn test_group() {
         let toks = quote! { hello (world::x) }.into_iter();
 
-        let parser = &namespace_with_ident::<_, Err<Simple<_>>>()
+        let parser = &namespace_with_ident::<_, Err<Rich<_>>>()
             .collect::<Vec<_>>()
-            .then(namespace_with_ident().collect::<Vec<_>>()
+            .then(namespace_with_ident::<_, Err<Rich<_>>>().collect::<Vec<_>>()
                 .grouped(GroupDelim::Parenthesis));
-        let _v = parser.parse(Stream::from_iter(toks))
+        let _v = parser.parse(Stream::from_iter(toks.map(|x| TokenTreeWrapper(x))))
             .into_result()
             .unwrap();
     }
