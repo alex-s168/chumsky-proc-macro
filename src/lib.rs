@@ -1,5 +1,8 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 use proc_macro2::TokenTree;
 use chumsky::{extra::ParserExtra, input::ValueInput, label::LabelError, util::MaybeRef, IterParser, Parser};
+use nostd::{prelude::*, fmt};
 
 pub trait LikeTokenTree {
     fn as_tok(&self) -> &TokenTree;
@@ -20,8 +23,8 @@ impl LikeTokenTree for (TokenTree, proc_macro2::Span) {
 #[derive(Clone, Debug)]
 pub struct TokenTreeWrapper(pub TokenTree);
 
-impl std::fmt::Display for TokenTreeWrapper {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for TokenTreeWrapper {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
@@ -223,11 +226,11 @@ where
     WI::Token: LikeTokenTree + 'wholesrc + 'b,
     WE: ParserExtra<'wholesrc, WI> + 'b,
     WE::Error: LabelError<'wholesrc, WI, Expected>,
-    PP: Parser<'partsrc, chumsky::input::Stream<std::vec::IntoIter<TokenTreeWrapper>>, V, PE> + 'b + 'wholesrc,
-    PE: ParserExtra<'partsrc, chumsky::input::Stream<std::vec::IntoIter<TokenTreeWrapper>>>,
+    PP: Parser<'partsrc, chumsky::input::Stream<vec::IntoIter<TokenTreeWrapper>>, V, PE> + 'b + 'wholesrc,
+    PE: ParserExtra<'partsrc, chumsky::input::Stream<vec::IntoIter<TokenTreeWrapper>>>,
     PE::Context: Default,
     PE::State: Default,
-    PE::Error: LabelError<'partsrc, chumsky::input::Stream<std::vec::IntoIter<TokenTreeWrapper>>, Expected>,
+    PE::Error: LabelError<'partsrc, chumsky::input::Stream<vec::IntoIter<TokenTreeWrapper>>, Expected>,
     WE::Error: From<PE::Error>
 {
     fn grouped(self, delim: GroupDelim) -> chumsky::Boxed<'wholesrc, 'b, WI, V, WE> {
